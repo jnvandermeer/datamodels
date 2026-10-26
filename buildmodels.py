@@ -195,13 +195,46 @@ class DataExplorer(DataLoader):
         # this will average over anything else - e.h., repeats and the like.
         #  my_detail is the thing we're going to be using to plot stuff!
         # from this - we may also need to plot the differences.
-        my_detail = df[my_slice].groupby([self.params.session,self.params.type,self.params.unit, self.params.participantid]).agg('mean').reset_index()
+        keep_these_cols = [
+            self.params.session,
+            self.params.type,
+            self.params.unit,
+            self.params.participantid,
+            self.params.data,
+        ]
+
+        # ugly upkeep:
+        if self.params.cols_to_keep is None:
+             pass
+        else:
+            if len(self.params.cols_to_keep) > 0:
+                if type(self.params.cols_to_keep) == str:
+                    keep_these_cols.append(self.params.cols_to_keep)
+                elif type(self.params.cols_to_keep) == list:
+                    for my_item in self.params.cols_to_keep:
+                        keep_these_cols.append(my_item)
+
+        # first make it lean:
+        my_temp_frame = df[my_slice][keep_these_cols]
+        
+        my_temp_frame[self.params.data] = (
+            pd.to_numeric(my_temp_frame[self.params.data], errors='coerce').fillna(-1)
+        )
+        
+        try:
+            my_detail = my_temp_frame.groupby([self.params.session,self.params.type,self.params.unit, self.params.participantid])[self.params.data].agg('mean').reset_index()
+        except:
+            set_trace(port=4444, term_size=(140, 45))
+            
 
         # we build the save filename already...
         my_save_fig_filename = str(fig_save_dir / re.sub('/','_', f'Distributions_{t}_{u}')) + '.png'
 
 
-        my_fig = _make_figure(self, my_detail, 'Distributions')
+        try:
+            my_fig = _make_figure(self, my_detail, 'Distributions')
+        except:
+            set_trace(term_size=(140,45))
         my_fig.write_image(my_save_fig_filename)
         print(f'saved: {my_save_fig_filename}')
 
@@ -229,23 +262,43 @@ class DataExplorer(DataLoader):
         (df[self.params.unit]==u)
 
 
+        
         # this will average over anything else - e.h., repeats and the like.
         #  my_detail is the thing we're going to be using to plot stuff!
         # from this - we may also need to plot the differences.
-        my_detail = (
-            df[my_slice]
-            .groupby([
-                self.params.session,
-                self.params.type,
-                self.params.unit,
-                self.params.participantid,
-            ])
-            .agg('mean')
-            .reset_index()
+        keep_these_cols = [
+            self.params.session,
+            self.params.type,
+            self.params.unit,
+            self.params.participantid,
+            self.params.data,
+        ]
+
+        # ugly upkeep:
+        if self.params.cols_to_keep is None:
+             pass
+        else:
+            if len(self.params.cols_to_keep) > 0:
+                if type(self.params.cols_to_keep) == str:
+                    keep_these_cols.append(self.params.cols_to_keep)
+                elif type(self.params.cols_to_keep) == list:
+                    for my_item in self.params.cols_to_keep:
+                        keep_these_cols.append(my_item)
+
+        # first make it lean:
+        my_temp_frame = df[my_slice][keep_these_cols]
+        
+        my_temp_frame[self.params.data] = (
+            pd.to_numeric(my_temp_frame[self.params.data], errors='coerce').fillna(-1)
         )
+        
+        try:
+            my_detail = my_temp_frame.groupby([self.params.session,self.params.type,self.params.unit, self.params.participantid])[self.params.data].agg('mean').reset_index()
+        except:
+            set_trace(port=4444, term_size=(140, 45))
+            
 
-        # print(sessions)
-
+        
         # Calculate differences -- pivot to matrix -> diff -> back to long format -> update stuff
         df_wide = my_detail.pivot(
             index=[self.params.type, self.params.unit, self.params.participantid],
@@ -266,14 +319,15 @@ class DataExplorer(DataLoader):
                 .rename(self.params.data)
                 .reset_index()
         )
+
         
-        
-        mean_repeat = (
-            my_detail.groupby(self.params.participantid)['repeat']
-            .mean()
-            .rename('repeat')
-        )
-        df_diff = df_diff.merge(mean_repeat, on=self.params.participantid, how='left')
+        if 'repeat' in my_detail.columns:
+            mean_repeat = (
+                my_detail.groupby(self.params.participantid)['repeat']
+                .mean()
+                .rename('repeat')
+            )
+            df_diff = df_diff.merge(mean_repeat, on=self.params.participantid, how='left')
         
 
 
